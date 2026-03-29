@@ -12,7 +12,9 @@ const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 
 // Create/open database file
-const db = new sqlite3.Database(path.join(__dirname, "platform.db"), (err) => {
+const db = new sqlite3.Database(
+  process.env.DATABASE_PATH || path.join(__dirname, "platform.db"),
+  (err) => {
   if (err) console.error("Database connection failed:", err);
   else console.log("✓ Connected to SQLite database");
 });

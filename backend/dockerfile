@@ -1,0 +1,26 @@
+# Backend Dockerfile for LaunchPort Hosting Platform
+# Node.js/Express API Server
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install production dependencies only
+RUN npm ci --only=production
+
+# Copy all source code
+COPY . .
+
+# Expose port 5000
+EXPOSE 5000
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=5000
+ENV DATABASE_PATH=/data/platform.db
+
+# Start the server
+CMD ["npm", "start"]

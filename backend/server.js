@@ -8,6 +8,7 @@ const bodyParser = require("body-parser");
 const helmet = require("helmet");
 const path = require("path");
 require("dotenv").config();
+process.env.DATABASE_PATH = process.env.DATABASE_PATH || './platform.db';
 
 // Import our modules
 const db = require("./db");

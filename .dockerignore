@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+ 
+# Node
+node_modules
+npm-debug.log
+ 
+# Environment
+.env
+.env.local
+ 
+# OS
+.DS_Store
+Thumbs.db
+ 
+# IDEs
+.vscode
+.idea
+*.swp
+ 
+# Build outputs
+dist
+build
+ 
+# Logs
+logs
+*.log
+ 
+# Database
+*.db.backup
+ 
+# Testing
+coverage
+ 
+# Temporary
+tmp
+temp
