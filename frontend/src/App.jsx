@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import CreateProject from './pages/CreateProject';
 import ProjectLogs from './pages/ProjectLogs';
@@ -13,13 +14,18 @@ function App() {
   useEffect(() => {
     setLoading(false);
     
-    // Listen for storage changes
+    // Listen for storage changes (both cross-tab and same-window)
     const handleStorageChange = () => {
       setRefreshKey(prev => prev + 1);
     };
     
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('localStorage-update', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('localStorage-update', handleStorageChange);
+    };
   }, []);
 
   // Check if authenticated in real-time from localStorage
@@ -43,6 +49,13 @@ function App() {
             isAuthenticated ? <Navigate to="/dashboard" /> : <Login />
           }
         />
+        
+        <Route
+          path="/signup"
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" /> : <Signup />
+          }
+        />
 
         {/* Protected Routes */}
         <Route
@@ -55,7 +68,7 @@ function App() {
             )
           }
         />
-
+        
         <Route
           path="/create-project"
           element={
@@ -66,7 +79,7 @@ function App() {
             )
           }
         />
-
+        
         <Route
           path="/project/:projectId/logs"
           element={
@@ -77,7 +90,7 @@ function App() {
             )
           }
         />
-
+        
         <Route
           path="/project/:projectId/secrets"
           element={

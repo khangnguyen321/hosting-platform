@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../api';
 import { AlertCircle, Loader } from 'lucide-react';
 
-export default function Login() {
+export default function Signup() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: '',
+    email: '',
     password: '',
+    confirmPassword: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,17 +23,45 @@ export default function Login() {
     setError('');
   };
 
+  const validateForm = () => {
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return false;
+    }
+    if (!formData.email.includes('@')) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
+    if (!validateForm()) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await authAPI.login(formData.username, formData.password);
+      await authAPI.signup(
+        formData.username,
+        formData.email,
+        formData.password
+      );
+      
+      // Auto-login after successful signup
+      const loginResponse = await authAPI.login(formData.username, formData.password);
       
       // Save token
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      localStorage.setItem('token', loginResponse.data.token);
+      localStorage.setItem('user', JSON.stringify(loginResponse.data.user));
       
       // Trigger custom storage event for same-window updates
       window.dispatchEvent(new Event('localStorage-update'));
@@ -39,14 +69,14 @@ export default function Login() {
       // Redirect to dashboard
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Please try again.');
+      setError(err.response?.data?.error || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSignup = () => {
-    navigate('/signup');
+  const handleLogin = () => {
+    navigate('/login');
   };
 
   return (
@@ -55,12 +85,12 @@ export default function Login() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">
-            Hosting Platform
+            Create Account
           </h1>
-          <p className="text-slate-400">Deploy your projects with confidence</p>
+          <p className="text-slate-400">Join LaunchPort and deploy with confidence</p>
         </div>
 
-        {/* Login Card */}
+        {/* Signup Card */}
         <div className="bg-slate-800 rounded-lg shadow-xl p-8 border border-slate-700">
           {error && (
             <div className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg flex items-start gap-3">
@@ -80,7 +110,24 @@ export default function Login() {
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
-                placeholder="Enter your username"
+                placeholder="Choose a username"
+                disabled={loading}
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                required
+              />
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="your.email@example.com"
                 disabled={loading}
                 className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                 required
@@ -97,14 +144,31 @@ export default function Login() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="Enter your password"
+                placeholder="At least 6 characters"
                 disabled={loading}
                 className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
                 required
               />
             </div>
 
-            {/* Login Button */}
+            {/* Confirm Password */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                placeholder="Re-enter your password"
+                disabled={loading}
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                required
+              />
+            </div>
+
+            {/* Signup Button */}
             <button
               type="submit"
               disabled={loading}
@@ -113,10 +177,10 @@ export default function Login() {
               {loading ? (
                 <>
                   <Loader className="w-5 h-5 animate-spin" />
-                  Logging in...
+                  Creating account...
                 </>
               ) : (
-                'Login'
+                'Create Account'
               )}
             </button>
           </form>
@@ -124,15 +188,15 @@ export default function Login() {
           {/* Divider */}
           <div className="my-6 border-t border-slate-700"></div>
 
-          {/* Signup Link */}
+          {/* Login Link */}
           <p className="text-center text-slate-400">
-            Don't have an account?{' '}
+            Already have an account?{' '}
             <button
-              onClick={handleSignup}
+              onClick={handleLogin}
               disabled={loading}
               className="text-blue-400 hover:text-blue-300 font-semibold disabled:opacity-50"
             >
-              Sign up
+              Log in
             </button>
           </p>
         </div>
