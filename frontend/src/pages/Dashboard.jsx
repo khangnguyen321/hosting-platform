@@ -36,8 +36,9 @@ export default function Dashboard() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    window.dispatchEvent(new Event('localStorage-update'));
     navigate('/login');
-  };
+};
 
   const handleCreateProject = () => {
     navigate('/create-project');
