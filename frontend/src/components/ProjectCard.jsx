@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { projectsAPI } from '../api';
-import { Trash2, Rocket, Square, Info, Loader } from 'lucide-react';
+import { Trash2, Rocket, Square, Info, Loader, RefreshCw } from 'lucide-react';
 
 export default function ProjectCard({ project, onDelete, onRefresh }) {
   const navigate = useNavigate();
   const [deploying, setDeploying] = useState(false);
   const [stopping, setStop] = useState(false);
+  const [redeploying, setRedeploying] = useState(false);
 
   const handleDeploy = async () => {
     if (window.confirm('Deploy this project?')) {
@@ -18,6 +19,21 @@ export default function ProjectCard({ project, onDelete, onRefresh }) {
         alert('Deployment failed: ' + err.response?.data?.error);
       } finally {
         setDeploying(false);
+      }
+    }
+  };
+
+  const handleRedeploy = async () => {
+    if (window.confirm('Redeploy this project? This will restart the application with the latest code from GitHub.')) {
+      try {
+        setRedeploying(true);
+        // Call deploy endpoint - backend will kill old process and start fresh
+        await projectsAPI.deploy(project.id);
+        setTimeout(onRefresh, 1000);
+      } catch (err) {
+        alert('Redeploy failed: ' + err.response?.data?.error);
+      } finally {
+        setRedeploying(false);
       }
     }
   };
@@ -90,6 +106,7 @@ export default function ProjectCard({ project, onDelete, onRefresh }) {
       {/* Buttons */}
       <div className="grid grid-cols-2 gap-2">
         {!project.is_running ? (
+          // STOPPED STATE - Show Deploy button
           <button
             onClick={handleDeploy}
             disabled={deploying}
@@ -108,23 +125,44 @@ export default function ProjectCard({ project, onDelete, onRefresh }) {
             )}
           </button>
         ) : (
-          <button
-            onClick={handleStop}
-            disabled={stopping}
-            className="flex items-center justify-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-700 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
-          >
-            {stopping ? (
-              <>
-                <Loader className="w-4 h-4 animate-spin" />
-                Stopping
-              </>
-            ) : (
-              <>
-                <Square className="w-4 h-4" />
-                Stop
-              </>
-            )}
-          </button>
+          // RUNNING STATE - Show Stop and Redeploy buttons
+          <>
+            <button
+              onClick={handleStop}
+              disabled={stopping || redeploying}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-700 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
+            >
+              {stopping ? (
+                <>
+                  <Loader className="w-4 h-4 animate-spin" />
+                  Stopping
+                </>
+              ) : (
+                <>
+                  <Square className="w-4 h-4" />
+                  Stop
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleRedeploy}
+              disabled={redeploying || stopping}
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
+            >
+              {redeploying ? (
+                <>
+                  <Loader className="w-4 h-4 animate-spin" />
+                  Redeploying
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  Redeploy
+                </>
+              )}
+            </button>
+          </>
         )}
 
         <button
