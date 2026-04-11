@@ -114,6 +114,31 @@ function killProcessByPort(port) {
 }
 
 /**
+ * CHECK IF PORT IS LISTENING
+ * Returns true if a process is actively listening on the specified port
+ * This is the source of truth for "is running" status
+ */
+async function isPortListening(port) {
+  return new Promise((resolve) => {
+    const net = require("net");
+    const tester = net.createConnection({ port, host: "localhost" }, () => {
+      tester.end();
+      resolve(true); // Port is listening
+    });
+
+    tester.on("error", () => {
+      resolve(false); // Port is not listening
+    });
+
+    // Timeout after 1 second
+    setTimeout(() => {
+      tester.destroy();
+      resolve(false);
+    }, 1000);
+  });
+}
+
+/**
  * CLONE REPOSITORY
  * Downloads a GitHub repo to your local machine
  */
@@ -195,31 +220,6 @@ async function startProject(
     } else {
       // New project - find available port
       port = await findAvailablePort();
-    }
-
-    /**
-     * CHECK IF PORT IS LISTENING
-     * Returns true if a process is actively listening on the specified port
-     * This is the source of truth for "is running" status
-     */
-    async function isPortListening(port) {
-      return new Promise((resolve) => {
-        const net = require("net");
-        const tester = net.createConnection({ port, host: "localhost" }, () => {
-          tester.end();
-          resolve(true); // Port is listening
-        });
-
-        tester.on("error", () => {
-          resolve(false); // Port is not listening
-        });
-
-        // Timeout after 1 second
-        setTimeout(() => {
-          tester.destroy();
-          resolve(false);
-        }, 1000);
-      });
     }
 
     console.log(`🚀 Starting ${projectName} on port ${port}...`);
