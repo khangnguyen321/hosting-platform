@@ -1,28 +1,34 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { projectsAPI } from '../api';
-import { LogOut, Plus, Loader } from 'lucide-react';
+import api from '../api';
 import ProjectCard from '../components/ProjectCard';
+import './Dashboard.css';
 
-export default function Dashboard() {
+function Dashboard() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [user, setUser] = useState(null);
+  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
+    fetchProjects();
+    // Get user email from token
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUserEmail(payload.email || 'user@example.com');
+      } catch (e) {
+        setUserEmail('user@example.com');
+      }
     }
-    loadProjects();
   }, []);
 
-  const loadProjects = async () => {
+  const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await projectsAPI.list();
+      const response = await api.get('/projects');
       setProjects(response.data);
       setError('');
     } catch (err) {
@@ -35,98 +41,139 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
     window.dispatchEvent(new Event('localStorage-update'));
     navigate('/login');
-};
-
-  const handleCreateProject = () => {
-    navigate('/create-project');
   };
 
-  const handleDeleteProject = async (id) => {
-    if (window.confirm('Are you sure you want to delete this project?')) {
-      try {
-        await projectsAPI.delete(id);
-        setProjects(projects.filter(p => p.id !== id));
-      } catch (err) {
-        setError('Failed to delete project');
-      }
+  const handleStart = async (projectId) => {
+    try {
+      await api.post(`/projects/${projectId}/start`);
+      fetchProjects();
+    } catch (err) {
+      alert('Failed to start project');
     }
   };
 
+  const handleStop = async (projectId) => {
+    try {
+      await api.post(`/projects/${projectId}/stop`);
+      fetchProjects();
+    } catch (err) {
+      alert('Failed to stop project');
+    }
+  };
+
+  const handleRestart = async (projectId) => {
+    try {
+      await api.post(`/projects/${projectId}/restart`);
+      fetchProjects();
+    } catch (err) {
+      alert('Failed to restart project');
+    }
+  };
+
+  const handleDelete = async (projectId) => {
+    if (!window.confirm('Are you sure you want to delete this project?')) {
+      return;
+    }
+    try {
+      await api.delete(`/projects/${projectId}`);
+      fetchProjects();
+    } catch (err) {
+      alert('Failed to delete project');
+    }
+  };
+
+  const handleViewLogs = (projectId) => {
+    alert(`Logs feature coming soon for project ${projectId}`);
+  };
+
+  const runningCount = projects.filter(p => p.status === 'running' || p.is_running).length;
+  const totalCount = projects.length;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
-      {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Hosting Platform</h1>
-            <p className="text-sm text-slate-400">
-              {user?.username ? `Welcome, ${user.username}` : 'Dashboard'}
-            </p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-lg transition-colors border border-red-600/30"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
+    <div className="dashboard-container">
+      <header className="dashboard-header">
+        <div className="logo">
+          <div className="logo-icon">LP</div>
+          <div className="logo-text">LaunchPort</div>
+        </div>
+        <div className="header-actions">
+          <div className="user-info">{userEmail}</div>
+          <button className="btn btn-secondary">Docs</button>
+          <button className="btn btn-danger" onClick={handleLogout}>Logout</button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-200">
-            {error}
-          </div>
-        )}
+      <div className="stats-bar">
+        <div className="stat-card">
+          <div className="stat-label">Total Projects</div>
+          <div className="stat-value">{totalCount}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Running</div>
+          <div className="stat-value">{runningCount}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">Stopped</div>
+          <div className="stat-value">{totalCount - runningCount}</div>
+        </div>
+      </div>
 
-        {/* Create Project Section */}
-        <div className="mb-8">
-          <button
-            onClick={handleCreateProject}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Create New Project
+      <div className="section-header">
+        <h2 className="section-title">Your Projects</h2>
+        <button className="btn btn-primary" onClick={() => navigate('/create-project')}>
+          <span>+</span>
+          New Project
+        </button>
+      </div>
+
+      {loading && (
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Loading projects...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-state">
+          <p>{error}</p>
+          <button className="btn btn-primary" onClick={fetchProjects}>Retry</button>
+        </div>
+      )}
+
+      {!loading && !error && projects.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-icon">📦</div>
+          <h3 className="empty-title">No projects yet</h3>
+          <p className="empty-description">
+            Deploy your first project by connecting a GitHub repository. 
+            LaunchPort will handle the rest.
+          </p>
+          <button className="btn btn-primary" onClick={() => navigate('/create-project')}>
+            <span>+</span>
+            Create Your First Project
           </button>
         </div>
+      )}
 
-        {/* Projects Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex flex-col items-center gap-4">
-              <Loader className="w-8 h-8 text-blue-500 animate-spin" />
-              <p className="text-slate-400">Loading projects...</p>
-            </div>
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-slate-400 mb-4">No projects yet</p>
-            <button
-              onClick={handleCreateProject}
-              className="text-blue-400 hover:text-blue-300 font-semibold"
-            >
-              Create your first project
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map(project => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onDelete={handleDeleteProject}
-                onRefresh={loadProjects}
-              />
-            ))}
-          </div>
-        )}
-      </main>
+      {!loading && !error && projects.length > 0 && (
+        <div className="projects-grid">
+          {projects.map(project => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onStart={handleStart}
+              onStop={handleStop}
+              onRestart={handleRestart}
+              onDelete={handleDelete}
+              onViewLogs={handleViewLogs}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+export default Dashboard;

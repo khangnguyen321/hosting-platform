@@ -1,185 +1,119 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { projectsAPI } from '../api';
-import { Trash2, Rocket, Square, Info, Loader, RefreshCw } from 'lucide-react';
+import React from 'react';
+import './ProjectCard.css';
 
-export default function ProjectCard({ project, onDelete, onRefresh }) {
-  const navigate = useNavigate();
-  const [deploying, setDeploying] = useState(false);
-  const [stopping, setStop] = useState(false);
-  const [redeploying, setRedeploying] = useState(false);
+function ProjectCard({ project, onStart, onStop, onRestart, onDelete, onViewLogs }) {
+  const isRunning = project.status === 'running' || project.is_running;
+  const isDeploying = project.status === 'deploying';
+  const isStopped = !isRunning && !isDeploying;
 
-  const handleDeploy = async () => {
-    if (window.confirm('Deploy this project?')) {
-      try {
-        setDeploying(true);
-        await projectsAPI.deploy(project.id);
-        setTimeout(onRefresh, 1000);
-      } catch (err) {
-        alert('Deployment failed: ' + err.response?.data?.error);
-      } finally {
-        setDeploying(false);
-      }
-    }
-  };
+  const statusClass = isRunning ? 'running' : isDeploying ? 'deploying' : 'stopped';
+  const statusText = isRunning ? 'Running' : isDeploying ? 'Deploying' : 'Stopped';
 
-  const handleRedeploy = async () => {
-    if (window.confirm('Redeploy this project? This will restart the application with the latest code from GitHub.')) {
-      try {
-        setRedeploying(true);
-        // Call deploy endpoint - backend will kill old process and start fresh
-        await projectsAPI.deploy(project.id);
-        setTimeout(onRefresh, 1000);
-      } catch (err) {
-        alert('Redeploy failed: ' + err.response?.data?.error);
-      } finally {
-        setRedeploying(false);
-      }
-    }
-  };
-
-  const handleStop = async () => {
-    try {
-      setStop(true);
-      await projectsAPI.stop(project.id);
-      setTimeout(onRefresh, 1000);
-    } catch (err) {
-      alert('Failed to stop: ' + err.response?.data?.error);
-    } finally {
-      setStop(false);
-    }
-  };
-
-  const handleViewLogs = () => {
-    navigate(`/project/${project.id}/logs`);
-  };
-
-  const handleViewSecrets = () => {
-    navigate(`/project/${project.id}/secrets`);
-  };
+  const projectUrl = `https://${project.name}.launchport.org`;
 
   return (
-    <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 hover:border-slate-600 transition-colors">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-white mb-1">
-            {project.name}
-          </h3>
-          <p className="text-sm text-slate-400 truncate">
-            {project.github_url}
-          </p>
+    <div className={`project-card ${statusClass}`}>
+      <div className="project-header">
+        <div className="project-info">
+          <h3 className="project-name">{project.name}</h3>
+          <a 
+            href={projectUrl} 
+            className="project-url" 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            {project.name}.launchport.org →
+          </a>
         </div>
-        <button
-          onClick={() => onDelete(project.id)}
-          className="p-2 hover:bg-red-600/10 text-red-400 rounded transition-colors"
-          title="Delete project"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
+        <span className={`status-badge status-${statusClass}`}>
+          <span className="status-dot"></span>
+          {statusText}
+        </span>
       </div>
 
-      {/* Status */}
-      <div className="mb-4 pb-4 border-b border-slate-700">
-        <div className="flex items-center gap-2">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              project.is_running ? 'bg-green-500' : 'bg-gray-500'
-            }`}
-          />
-          <span className="text-sm font-medium text-slate-300">
-            {project.is_running ? 'Running' : 'Stopped'}
-          </span>
-          {project.is_running && project.port && (
-            <span className="text-xs text-slate-400">
-              → localhost:{project.port}
-            </span>
-          )}
+      <div className="project-meta">
+        <div className="meta-item">
+          <div className="meta-label">Port</div>
+          <div className="meta-value">{project.port || 'N/A'}</div>
+        </div>
+        <div className="meta-item">
+          <div className="meta-label">Branch</div>
+          <div className="meta-value">{project.github_branch || 'main'}</div>
+        </div>
+        <div className="meta-item">
+          <div className="meta-label">Repository</div>
+          <div className="meta-value" title={project.github_url}>
+            {project.github_url?.split('/').pop()?.replace('.git', '') || 'N/A'}
+          </div>
         </div>
       </div>
 
-      {/* Description */}
-      {project.description && (
-        <p className="text-sm text-slate-400 mb-4">{project.description}</p>
+      {isRunning && (
+        <div className="terminal-preview">
+          <div className="terminal-line">
+            <span className="terminal-prompt">$</span> npm start
+          </div>
+          <div className="terminal-line">
+            <span className="terminal-success">✓</span> Server running on port {project.port}
+          </div>
+          <div className="terminal-line">
+            <span className="terminal-info">[{project.name}]</span> Application started successfully
+          </div>
+        </div>
       )}
 
-      {/* Buttons */}
-      <div className="grid grid-cols-2 gap-2">
-        {!project.is_running ? (
-          // STOPPED STATE - Show Deploy button
-          <button
-            onClick={handleDeploy}
-            disabled={deploying}
-            className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
+      <div className="project-actions">
+        {isStopped && (
+          <button 
+            className="btn btn-primary" 
+            onClick={() => onStart(project.id)}
           >
-            {deploying ? (
-              <>
-                <Loader className="w-4 h-4 animate-spin" />
-                Deploying
-              </>
-            ) : (
-              <>
-                <Rocket className="w-4 h-4" />
-                Deploy
-              </>
-            )}
+            ▶ Start
           </button>
-        ) : (
-          // RUNNING STATE - Show Stop and Redeploy buttons
+        )}
+        {isRunning && (
           <>
-            <button
-              onClick={handleStop}
-              disabled={stopping || redeploying}
-              className="flex items-center justify-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-700 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
+            <button 
+              className="btn btn-secondary btn-icon" 
+              onClick={() => onRestart(project.id)}
+              title="Restart"
             >
-              {stopping ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Stopping
-                </>
-              ) : (
-                <>
-                  <Square className="w-4 h-4" />
-                  Stop
-                </>
-              )}
+              🔄
             </button>
-
-            <button
-              onClick={handleRedeploy}
-              disabled={redeploying || stopping}
-              className="flex items-center justify-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded transition-colors"
+            <button 
+              className="btn btn-danger btn-icon" 
+              onClick={() => onStop(project.id)}
+              title="Stop"
             >
-              {redeploying ? (
-                <>
-                  <Loader className="w-4 h-4 animate-spin" />
-                  Redeploying
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4" />
-                  Redeploy
-                </>
-              )}
+              ⏹
             </button>
           </>
         )}
-
-        <button
-          onClick={handleViewLogs}
-          className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium rounded transition-colors"
+        <button 
+          className="btn btn-secondary btn-icon" 
+          onClick={() => onViewLogs(project.id)}
+          title="View Logs"
         >
-          <Info className="w-4 h-4" />
-          Logs
+          📄
         </button>
-
-        <button
-          onClick={handleViewSecrets}
-          className="col-span-2 w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium rounded transition-colors"
+        <button 
+          className="btn btn-secondary btn-icon" 
+          title="Settings"
         >
-          Manage Secrets
+          ⚙️
         </button>
+        {isStopped && (
+          <button 
+            className="btn btn-danger btn-icon" 
+            onClick={() => onDelete(project.id)}
+            title="Delete"
+          >
+            🗑
+          </button>
+        )}
       </div>
     </div>
   );
 }
+
+export default ProjectCard;
