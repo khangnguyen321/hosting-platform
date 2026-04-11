@@ -1,7 +1,9 @@
 # Backend Dockerfile for LaunchPort Hosting Platform
 # Node.js/Express API Server
 
-FROM node:18-alpine
+FROM node:18
+
+RUN apt-get update && apt-get install -y git lsof && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -9,7 +11,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install production dependencies only
-RUN npm ci --only=production
+RUN npm install --production
 
 # Copy all source code
 COPY . .

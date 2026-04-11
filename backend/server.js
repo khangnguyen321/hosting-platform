@@ -32,6 +32,8 @@ const {
   createNotFoundError,
   createAuthorizationError,
 } = require("./errors");
+const nginxAutomation = require('./nginx-automation');
+
 
 // Initialize Express app
 const app = express();
@@ -274,6 +276,25 @@ app.post(
         projectEnv,
       );
 
+// 🆕 AUTO-SETUP NGINX AND SSL
+let subdomain = `${project.name}.launchport.org`;
+let automationResult = null;
+try {
+  console.log(`🔧 Setting up Nginx and SSL for ${project.name}...`);
+  automationResult = await nginxAutomation.setupNginxAndSSL(project.name, port);
+  
+  if (automationResult.success) {
+    console.log(`✅ Nginx and SSL configured automatically!`);
+    console.log(`🌐 Project available at: ${automationResult.url}`);
+  } else {
+    console.warn(`⚠️  Automation failed: ${automationResult.error}`);
+    console.warn(`Manual setup required for ${subdomain}`);
+  }
+} catch (autoError) {
+  console.error(`⚠️  Automation service error: ${autoError.message}`);
+  console.warn(`Project deployed but manual Nginx setup required`);
+}
+
       await audit.logDeploymentEvent(
         req.user.id,
         projectId,
@@ -283,6 +304,8 @@ app.post(
           port,
           pid,
           name: project.name,
+	  subdomain,
+	  automationResult,
         },
       );
 
@@ -292,8 +315,11 @@ app.post(
         projectId,
         port,
         pid,
-        url: `http://localhost:${port}`,
+        url: automationResult?.success ? automationResult.url : `http://localhost:${port}`,
+	subdomain: automationResult?.success ? subdomain : null,
+	automation: automationResult,
       });
+
     } catch (deployError) {
       await audit.logDeploymentEvent(
         req.user.id,

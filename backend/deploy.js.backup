@@ -58,60 +58,6 @@ function findAvailablePort(startPort = 3001) {
 }
 
 /**
- * KILL PROCESS BY PORT
- * Find and kill any process listening on a specific port
- * This works even after container restarts (unlike in-memory tracking)
- */
-function killProcessByPort(port) {
-  try {
-    console.log(`🔍 Checking for existing process on port ${port}...`);
-    
-    // Use lsof to find process using this port
-    // lsof -ti:PORT returns the PID
-    const result = execSync(`lsof -ti:${port}`, { encoding: 'utf8' }).trim();
-    
-    if (result) {
-      const pids = result.split('\n').filter(pid => pid);
-      console.log(`⚠️  Found ${pids.length} process(es) on port ${port}: ${pids.join(', ')}`);
-      
-      for (const pid of pids) {
-        try {
-          console.log(`   Killing PID ${pid}...`);
-          // Try SIGTERM first (graceful)
-          execSync(`kill -15 ${pid}`);
-          // Wait a moment
-          execSync('sleep 1');
-          // Check if still running, then SIGKILL
-          try {
-            execSync(`kill -0 ${pid}`); // Check if process exists
-            execSync(`kill -9 ${pid}`); // Force kill
-            console.log(`   ✓ Forcefully killed PID ${pid}`);
-          } catch (e) {
-            console.log(`   ✓ Gracefully stopped PID ${pid}`);
-          }
-        } catch (err) {
-          // Process might have already exited
-          console.log(`   ✓ Process ${pid} already stopped`);
-        }
-      }
-      
-      return true;
-    } else {
-      console.log(`✓ No existing process on port ${port}`);
-      return false;
-    }
-  } catch (error) {
-    // lsof returns exit code 1 if no process found - this is normal
-    if (error.status === 1) {
-      console.log(`✓ No existing process on port ${port}`);
-      return false;
-    }
-    console.warn(`⚠️  Error checking port ${port}: ${error.message}`);
-    return false;
-  }
-}
-
-/**
  * CLONE REPOSITORY
  * Downloads a GitHub repo to your local machine
  */
@@ -158,8 +104,7 @@ async function installDependencies(projectPath) {
  * Starts a Node.js application and assigns it a port
  * Supports custom environment variables (from encrypted secrets)
  * 
- * IMPROVED: Kills processes by PORT instead of memory tracking
- * This survives container restarts!
+ * FIXED: Now kills old process before starting new one
  */
 async function startProject(
   projectId,
@@ -168,29 +113,27 @@ async function startProject(
   customEnv = {},
 ) {
   try {
-    // Get the port that should be used for this project
-    const assignedPort = await new Promise((resolve, reject) => {
-      db.get(
-        "SELECT port FROM projects WHERE id = ?",
-        [projectId],
-        (err, row) => {
-          if (err) reject(err);
-          else resolve(row?.port || null);
+    // ✅ FIX #1: Kill old process if it exists
+    if (runningProcesses[projectId]) {
+      console.log(`⚠️  Found existing process for project ${projectId}, stopping it first...`);
+      try {
+        runningProcesses[projectId].childProcess.kill('SIGTERM');
+        // Give it a moment to shut down gracefully
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        // If still running, force kill
+        if (runningProcesses[projectId]) {
+          runningProcesses[projectId].childProcess.kill('SIGKILL');
         }
-      );
-    });
-
-    // Determine which port to use
-    let port;
-    if (assignedPort) {
-      // Project has an assigned port - kill anything using it, then reuse it
-      console.log(`📌 Project assigned to port ${assignedPort}`);
-      killProcessByPort(assignedPort);
-      port = assignedPort;
-    } else {
-      // New project - find available port
-      port = await findAvailablePort();
+        delete runningProcesses[projectId];
+        console.log(`✓ Old process stopped`);
+      } catch (killError) {
+        console.warn(`⚠️  Warning: Could not kill old process: ${killError.message}`);
+        // Continue anyway - new process might work
+      }
     }
+
+    // Find an available port
+    const port = await findAvailablePort();
 
     console.log(`🚀 Starting ${projectName} on port ${port}...`);
 
@@ -245,7 +188,7 @@ async function startProject(
     childProcess.on("exit", (code) => {
       console.log(`[${projectName}] Process exited with code ${code}`);
       delete runningProcesses[projectId];
-      // Update database when process exits
+      // ✅ FIX #2: Update database when process exits
       db.run("UPDATE projects SET is_running = 0 WHERE id = ?", [projectId]);
     });
 
@@ -268,33 +211,13 @@ async function startProject(
 async function stopProject(projectId) {
   try {
     const processData = runningProcesses[projectId];
-    
     if (!processData) {
-      // Try to get port from database and kill by port
-      const project = await new Promise((resolve, reject) => {
-        db.get(
-          "SELECT port FROM projects WHERE id = ?",
-          [projectId],
-          (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-          }
-        );
-      });
-      
-      if (project?.port) {
-        console.log(`⏹️  Stopping project ${projectId} by port ${project.port}...`);
-        killProcessByPort(project.port);
-        db.run("UPDATE projects SET is_running = 0 WHERE id = ?", [projectId]);
-        return { message: "Project stopped successfully" };
-      } else {
-        throw new Error("Project is not running");
-      }
+      throw new Error("Project is not running");
     }
 
     console.log(`⏹️  Stopping project ${projectId}...`);
 
-    // Try graceful shutdown first, then force kill
+    // ✅ FIX #3: Try graceful shutdown first, then force kill
     try {
       processData.childProcess.kill('SIGTERM');
       // Wait a bit for graceful shutdown
