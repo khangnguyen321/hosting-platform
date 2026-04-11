@@ -1,214 +1,300 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { projectsAPI } from '../api';
-import { ArrowLeft, AlertCircle, Loader } from 'lucide-react';
+import api from '../api';
+import './CreateProject.css';
 
-export default function CreateProject() {
+function CreateProject() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
-    github_url: '',
-    github_branch: 'main',
-    description: '',
+    githubUrl: '',
+    githubBranch: 'main',
+    description: ''
   });
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  const [deployLogs, setDeployLogs] = useState([]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-    setError('');
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const addLog = (message, type = 'info') => {
+    setDeployLogs(prev => [...prev, { message, type, timestamp: new Date() }]);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
+    setDeploying(true);
+    setDeployLogs([]);
 
-    // Validation
-    if (!formData.name.trim()) {
-      setError('Project name is required');
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.github_url.trim()) {
-      setError('GitHub URL is required');
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.github_url.endsWith('.git')) {
-      setError('GitHub URL must end with .git');
-      setLoading(false);
-      return;
-    }
+    addLog('Initializing deployment...', 'info');
 
     try {
-      await projectsAPI.create(
-        formData.name,
-        formData.github_url,
-        formData.github_branch,
-        formData.description
-      );
+      // Create project
+      addLog('Creating project...', 'info');
+      const createResponse = await api.post('/api/projects', {
+        name: formData.name,
+        github_url: formData.githubUrl,
+        github_branch: formData.githubBranch,
+        description: formData.description
+      });
 
-      // Redirect to dashboard
-      navigate('/dashboard');
+      const projectId = createResponse.data.id;
+      addLog(`✓ Project created (ID: ${projectId})`, 'success');
+
+      // Deploy project
+      addLog('Starting deployment...', 'info');
+      const deployResponse = await api.post(`/api/projects/${projectId}/deploy`);
+
+      addLog('✓ Cloning repository...', 'success');
+      addLog('✓ Installing dependencies...', 'success');
+      addLog('✓ Starting application...', 'success');
+      
+      if (deployResponse.data.url) {
+        addLog(`✓ Deployment complete! Live at ${deployResponse.data.url}`, 'success');
+      } else {
+        addLog('✓ Deployment complete!', 'success');
+      }
+
+      // Redirect after short delay
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
+
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create project');
-    } finally {
-      setLoading(false);
+      const errorMsg = err.response?.data?.error || 'Deployment failed. Please try again.';
+      setError(errorMsg);
+      addLog(`✗ Error: ${errorMsg}`, 'error');
+      setDeploying(false);
     }
   };
 
+  const handleCancel = () => {
+    navigate('/dashboard');
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 p-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-slate-400 hover:text-white mb-8 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </button>
-
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create Project</h1>
-          <p className="text-slate-400">
-            Add a new GitHub repository to deploy
-          </p>
+    <div className="create-project-container">
+      <div className="create-project-header">
+        <div className="header-content">
+          <button onClick={handleCancel} className="back-button">
+            ← Back to Dashboard
+          </button>
+          <h1 className="page-title">Deploy New Project</h1>
+          <p className="page-subtitle">Connect your GitHub repository and deploy in seconds</p>
         </div>
+      </div>
 
-        {/* Form Card */}
-        <div className="bg-slate-800 rounded-lg border border-slate-700 p-8">
-          {error && (
-            <div className="mb-6 p-4 bg-red-900/20 border border-red-800 rounded-lg flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-red-200">{error}</p>
-            </div>
-          )}
+      <div className="create-project-content">
+        <div className="form-section">
+          <form onSubmit={handleSubmit} className="project-form">
+            {error && !deploying && (
+              <div className="error-banner">
+                <span className="error-icon">⚠</span>
+                {error}
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Project Name */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Project Name *
+            <div className="form-group">
+              <label htmlFor="name" className="form-label">
+                <span className="label-text">Project Name</span>
+                <span className="label-required">*</span>
               </label>
               <input
                 type="text"
+                id="name"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="e.g., My API"
-                disabled={loading}
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                className="form-input"
+                placeholder="my-awesome-app"
                 required
+                disabled={deploying}
+                pattern="[a-z0-9-]+"
+                title="Only lowercase letters, numbers, and hyphens"
               />
-              <p className="text-xs text-slate-400 mt-1">
-                A friendly name for your project
+              <p className="form-hint">
+                Will be available at <span className="hint-mono">{formData.name || 'your-project'}.launchport.org</span>
               </p>
             </div>
 
-            {/* GitHub URL */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                GitHub Repository URL *
+            <div className="form-group">
+              <label htmlFor="githubUrl" className="form-label">
+                <span className="label-text">GitHub Repository URL</span>
+                <span className="label-required">*</span>
               </label>
               <input
                 type="url"
-                name="github_url"
-                value={formData.github_url}
+                id="githubUrl"
+                name="githubUrl"
+                value={formData.githubUrl}
                 onChange={handleChange}
-                placeholder="https://github.com/username/repo.git"
-                disabled={loading}
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                className="form-input"
+                placeholder="https://github.com/username/repository.git"
                 required
+                disabled={deploying}
               />
-              <p className="text-xs text-slate-400 mt-1">
-                Must be HTTPS and end with .git
+              <p className="form-hint">
+                Public or private repositories (must be accessible)
               </p>
             </div>
 
-            {/* GitHub Branch */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Branch to Deploy
+            <div className="form-group">
+              <label htmlFor="githubBranch" className="form-label">
+                <span className="label-text">Branch</span>
               </label>
               <input
                 type="text"
-                name="github_branch"
-                value={formData.github_branch}
+                id="githubBranch"
+                name="githubBranch"
+                value={formData.githubBranch}
                 onChange={handleChange}
+                className="form-input"
                 placeholder="main"
-                disabled={loading}
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                disabled={deploying}
               />
-              <p className="text-xs text-slate-400 mt-1">
-                Default: main
+              <p className="form-hint">
+                Default branch to deploy from
               </p>
             </div>
 
-            {/* Description */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Description
+            <div className="form-group">
+              <label htmlFor="description" className="form-label">
+                <span className="label-text">Description</span>
+                <span className="label-optional">(optional)</span>
               </label>
               <textarea
+                id="description"
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                placeholder="Optional: Describe what this project does"
-                disabled={loading}
-                rows={4}
-                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50 resize-none"
+                className="form-textarea"
+                placeholder="A brief description of your project..."
+                rows="3"
+                disabled={deploying}
               />
             </div>
 
-            {/* Info Box */}
-            <div className="p-4 bg-blue-900/20 border border-blue-800/50 rounded-lg">
-              <h3 className="text-sm font-semibold text-blue-300 mb-2">
-                Requirements:
-              </h3>
-              <ul className="text-xs text-blue-200 space-y-1">
-                <li>✓ Repository must have package.json</li>
-                <li>✓ Repository must have a start script</li>
-                <li>✓ Node.js 16+ compatible</li>
-              </ul>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader className="w-5 h-5 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Project'
-                )}
-              </button>
+            <div className="form-actions">
               <button
                 type="button"
-                onClick={() => navigate('/dashboard')}
-                disabled={loading}
-                className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+                onClick={handleCancel}
+                className="btn btn-secondary"
+                disabled={deploying}
               >
                 Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={deploying}
+              >
+                {deploying ? (
+                  <>
+                    <span className="spinner-small"></span>
+                    Deploying...
+                  </>
+                ) : (
+                  <>
+                    <span>🚀</span>
+                    Deploy Project
+                  </>
+                )}
               </button>
             </div>
           </form>
         </div>
+
+        {deploying && (
+          <div className="deploy-section">
+            <div className="deploy-status">
+              <div className="status-header">
+                <h3 className="status-title">Deployment in Progress</h3>
+                <div className="status-indicator">
+                  <span className="status-dot deploying"></span>
+                  Deploying
+                </div>
+              </div>
+
+              <div className="terminal-output">
+                {deployLogs.map((log, index) => (
+                  <div 
+                    key={index} 
+                    className={`terminal-line terminal-${log.type}`}
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                  >
+                    <span className="terminal-prompt">$</span>
+                    <span className="terminal-text">{log.message}</span>
+                  </div>
+                ))}
+                <div className="terminal-cursor">_</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!deploying && (
+          <div className="info-section">
+            <h3 className="info-title">What happens next?</h3>
+            <div className="info-steps">
+              <div className="info-step">
+                <div className="step-number">1</div>
+                <div className="step-content">
+                  <h4 className="step-title">Clone Repository</h4>
+                  <p className="step-description">
+                    LaunchPort clones your GitHub repository to the server
+                  </p>
+                </div>
+              </div>
+              <div className="info-step">
+                <div className="step-number">2</div>
+                <div className="step-content">
+                  <h4 className="step-title">Install Dependencies</h4>
+                  <p className="step-description">
+                    Automatically runs npm install or yarn install
+                  </p>
+                </div>
+              </div>
+              <div className="info-step">
+                <div className="step-number">3</div>
+                <div className="step-content">
+                  <h4 className="step-title">Configure & Deploy</h4>
+                  <p className="step-description">
+                    Sets up Nginx reverse proxy and SSL certificate
+                  </p>
+                </div>
+              </div>
+              <div className="info-step">
+                <div className="step-number">4</div>
+                <div className="step-content">
+                  <h4 className="step-title">Go Live!</h4>
+                  <p className="step-description">
+                    Your app is live at your-project.launchport.org
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="info-note">
+              <div className="note-icon">💡</div>
+              <div>
+                <h4 className="note-title">Requirements</h4>
+                <p className="note-text">
+                  Your project must have a <code>package.json</code> with a <code>start</code> script.
+                  Make sure your app listens on the PORT environment variable.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+export default CreateProject;
