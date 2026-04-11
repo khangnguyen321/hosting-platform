@@ -6,7 +6,7 @@ import './Auth.css';
 function Login() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
   const [error, setError] = useState('');
@@ -61,19 +61,19 @@ function Login() {
             )}
 
             <div className="form-group">
-              <label htmlFor="email" className="form-label">
-                Email Address
+              <label htmlFor="username" className="form-label">
+                Username or Email
               </label>
               <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
                 onChange={handleChange}
                 className="form-input"
-                placeholder="you@example.com"
+                placeholder="testuser"
                 required
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
 

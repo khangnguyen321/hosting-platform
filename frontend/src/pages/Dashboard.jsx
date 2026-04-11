@@ -28,7 +28,7 @@ function Dashboard() {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/projects');
+      const response = await api.get('/api/projects');
       setProjects(response.data);
       setError('');
     } catch (err) {
@@ -47,7 +47,7 @@ function Dashboard() {
 
   const handleStart = async (projectId) => {
     try {
-      await api.post(`/projects/${projectId}/start`);
+      await api.post(`/api/projects/${projectId}/start`);
       fetchProjects();
     } catch (err) {
       alert('Failed to start project');
@@ -56,7 +56,7 @@ function Dashboard() {
 
   const handleStop = async (projectId) => {
     try {
-      await api.post(`/projects/${projectId}/stop`);
+      await api.post(`/api/projects/${projectId}/stop`);
       fetchProjects();
     } catch (err) {
       alert('Failed to stop project');
@@ -65,7 +65,7 @@ function Dashboard() {
 
   const handleRestart = async (projectId) => {
     try {
-      await api.post(`/projects/${projectId}/restart`);
+      await api.post(`/api/projects/${projectId}/restart`);
       fetchProjects();
     } catch (err) {
       alert('Failed to restart project');
@@ -77,7 +77,7 @@ function Dashboard() {
       return;
     }
     try {
-      await api.delete(`/projects/${projectId}`);
+      await api.delete(`/api/projects/${projectId}`);
       fetchProjects();
     } catch (err) {
       alert('Failed to delete project');
