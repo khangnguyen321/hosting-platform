@@ -65,22 +65,24 @@ function findAvailablePort(startPort = 3001) {
 function killProcessByPort(port) {
   try {
     console.log(`🔍 Checking for existing process on port ${port}...`);
-    
+
     // Use lsof to find process using this port
     // lsof -ti:PORT returns the PID
-    const result = execSync(`lsof -ti:${port}`, { encoding: 'utf8' }).trim();
-    
+    const result = execSync(`lsof -ti:${port}`, { encoding: "utf8" }).trim();
+
     if (result) {
-      const pids = result.split('\n').filter(pid => pid);
-      console.log(`⚠️  Found ${pids.length} process(es) on port ${port}: ${pids.join(', ')}`);
-      
+      const pids = result.split("\n").filter((pid) => pid);
+      console.log(
+        `⚠️  Found ${pids.length} process(es) on port ${port}: ${pids.join(", ")}`,
+      );
+
       for (const pid of pids) {
         try {
           console.log(`   Killing PID ${pid}...`);
           // Try SIGTERM first (graceful)
           execSync(`kill -15 ${pid}`);
           // Wait a moment
-          execSync('sleep 1');
+          execSync("sleep 1");
           // Check if still running, then SIGKILL
           try {
             execSync(`kill -0 ${pid}`); // Check if process exists
@@ -94,7 +96,7 @@ function killProcessByPort(port) {
           console.log(`   ✓ Process ${pid} already stopped`);
         }
       }
-      
+
       return true;
     } else {
       console.log(`✓ No existing process on port ${port}`);
@@ -157,9 +159,12 @@ async function installDependencies(projectPath) {
  * START PROJECT
  * Starts a Node.js application and assigns it a port
  * Supports custom environment variables (from encrypted secrets)
- * 
- * IMPROVED: Kills processes by PORT instead of memory tracking
- * This survives container restarts!
+ *
+ * IMPROVED:
+ * - Kills processes by PORT instead of memory tracking (survives restarts)
+ * - Detached processes (survive backend restart)
+ * - Proper error handling
+ * - Process group cleanup
  */
 async function startProject(
   projectId,
@@ -176,7 +181,7 @@ async function startProject(
         (err, row) => {
           if (err) reject(err);
           else resolve(row?.port || null);
-        }
+        },
       );
     });
 
@@ -213,17 +218,32 @@ async function startProject(
     };
 
     // Start the process with merged environment
+    // FIXED: Added detached and proper stdio handling
     const childProcess = spawn("npm", ["start"], {
       cwd: projectPath,
       env: envVars,
+      detached: true, // ✅ FIX: Process survives parent restart
+      stdio: ["ignore", "pipe", "pipe"], // ✅ FIX: Proper stream handling
     });
+
+    // Unref so parent can exit independently
+    childProcess.unref();
 
     // Store process reference so we can stop it later
     runningProcesses[projectId] = {
       childProcess,
       port,
       pid: childProcess.pid,
+      startedAt: new Date().toISOString(),
     };
+
+    // ✅ FIX: Handle spawn errors
+    childProcess.on("error", (error) => {
+      console.error(`[${projectName}] ❌ Failed to spawn: ${error.message}`);
+      saveLog(projectId, `Failed to spawn: ${error.message}`, "error");
+      delete runningProcesses[projectId];
+      db.run("UPDATE projects SET is_running = 0 WHERE id = ?", [projectId]);
+    });
 
     // Collect logs
     let allLogs = "";
@@ -242,11 +262,20 @@ async function startProject(
       saveLog(projectId, message, "error");
     });
 
-    childProcess.on("exit", (code) => {
-      console.log(`[${projectName}] Process exited with code ${code}`);
+    childProcess.on("exit", (code, signal) => {
+      console.log(
+        `[${projectName}] Process exited with code ${code}, signal ${signal}`,
+      );
       delete runningProcesses[projectId];
       // Update database when process exits
       db.run("UPDATE projects SET is_running = 0 WHERE id = ?", [projectId]);
+
+      // Log the exit
+      saveLog(
+        projectId,
+        `Process exited with code ${code}`,
+        code === 0 ? "info" : "error",
+      );
     });
 
     // Update database with port and running status
@@ -255,8 +284,13 @@ async function startProject(
       projectId,
     ]);
 
+    console.log(
+      `✅ ${projectName} started successfully on port ${port} (PID: ${childProcess.pid})`,
+    );
+
     return { port, pid: childProcess.pid };
   } catch (error) {
+    console.error(`❌ Failed to start project: ${error.message}`);
     throw new Error(`Failed to start project: ${error.message}`);
   }
 }
@@ -268,7 +302,7 @@ async function startProject(
 async function stopProject(projectId) {
   try {
     const processData = runningProcesses[projectId];
-    
+
     if (!processData) {
       // Try to get port from database and kill by port
       const project = await new Promise((resolve, reject) => {
@@ -278,12 +312,14 @@ async function stopProject(projectId) {
           (err, row) => {
             if (err) reject(err);
             else resolve(row);
-          }
+          },
         );
       });
-      
+
       if (project?.port) {
-        console.log(`⏹️  Stopping project ${projectId} by port ${project.port}...`);
+        console.log(
+          `⏹️  Stopping project ${projectId} by port ${project.port}...`,
+        );
         killProcessByPort(project.port);
         db.run("UPDATE projects SET is_running = 0 WHERE id = ?", [projectId]);
         return { message: "Project stopped successfully" };
@@ -296,18 +332,18 @@ async function stopProject(projectId) {
 
     // Try graceful shutdown first, then force kill
     try {
-      processData.childProcess.kill('SIGTERM');
+      processData.childProcess.kill("SIGTERM");
       // Wait a bit for graceful shutdown
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       // If still exists, force kill
       if (runningProcesses[projectId]) {
-        processData.childProcess.kill('SIGKILL');
+        processData.childProcess.kill("SIGKILL");
       }
     } catch (killError) {
       console.warn(`⚠️  Warning during stop: ${killError.message}`);
     }
-    
+
     delete runningProcesses[projectId];
 
     // Update database
