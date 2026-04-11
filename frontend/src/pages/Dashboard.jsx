@@ -28,7 +28,7 @@ function Dashboard() {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/projects');
+      const response = await api.get('/api/projects');
       setProjects(response.data);
       setError('');
     } catch (err) {
@@ -45,30 +45,21 @@ function Dashboard() {
     navigate('/login');
   };
 
-  const handleStart = async (projectId) => {
+  const handleDeploy = async (projectId) => {
     try {
-      await api.post(`/projects/${projectId}/start`);
-      fetchProjects();
+      await api.post(`/api/projects/${projectId}/deploy`);
+      fetchProjects(); // Refresh list
     } catch (err) {
-      alert('Failed to start project');
+      alert('Failed to deploy project: ' + (err.response?.data?.error || err.message));
     }
   };
 
   const handleStop = async (projectId) => {
     try {
-      await api.post(`/projects/${projectId}/stop`);
+      await api.post(`/api/projects/${projectId}/stop`);
       fetchProjects();
     } catch (err) {
-      alert('Failed to stop project');
-    }
-  };
-
-  const handleRestart = async (projectId) => {
-    try {
-      await api.post(`/projects/${projectId}/restart`);
-      fetchProjects();
-    } catch (err) {
-      alert('Failed to restart project');
+      alert('Failed to stop project: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -77,10 +68,10 @@ function Dashboard() {
       return;
     }
     try {
-      await api.delete(`/projects/${projectId}`);
+      await api.delete(`/api/projects/${projectId}`);
       fetchProjects();
     } catch (err) {
-      alert('Failed to delete project');
+      alert('Failed to delete project: ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -163,9 +154,8 @@ function Dashboard() {
             <ProjectCard
               key={project.id}
               project={project}
-              onStart={handleStart}
+              onDeploy={handleDeploy}
               onStop={handleStop}
-              onRestart={handleRestart}
               onDelete={handleDelete}
               onViewLogs={handleViewLogs}
             />

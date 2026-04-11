@@ -1,7 +1,7 @@
 import React from 'react';
 import './ProjectCard.css';
 
-function ProjectCard({ project, onStart, onStop, onRestart, onDelete, onViewLogs }) {
+function ProjectCard({ project, onDeploy, onStop, onDelete, onViewLogs }) {
   const isRunning = project.status === 'running' || project.is_running;
   const isDeploying = project.status === 'deploying';
   const isStopped = !isRunning && !isDeploying;
@@ -63,32 +63,27 @@ function ProjectCard({ project, onStart, onStop, onRestart, onDelete, onViewLogs
       )}
 
       <div className="project-actions">
-        {isStopped && (
+        {/* Deploy/Redeploy button - always available */}
+        <button 
+          className="btn btn-primary" 
+          onClick={() => onDeploy(project.id)}
+          title={isRunning ? "Redeploy project" : "Deploy project"}
+        >
+          🚀 {isRunning ? 'Redeploy' : 'Deploy'}
+        </button>
+
+        {/* Stop button - only for running projects */}
+        {isRunning && (
           <button 
-            className="btn btn-primary" 
-            onClick={() => onStart(project.id)}
+            className="btn btn-danger btn-icon" 
+            onClick={() => onStop(project.id)}
+            title="Stop"
           >
-            ▶ Start
+            ⏹
           </button>
         )}
-        {isRunning && (
-          <>
-            <button 
-              className="btn btn-secondary btn-icon" 
-              onClick={() => onRestart(project.id)}
-              title="Restart"
-            >
-              🔄
-            </button>
-            <button 
-              className="btn btn-danger btn-icon" 
-              onClick={() => onStop(project.id)}
-              title="Stop"
-            >
-              ⏹
-            </button>
-          </>
-        )}
+
+        {/* Logs button */}
         <button 
           className="btn btn-secondary btn-icon" 
           onClick={() => onViewLogs(project.id)}
@@ -96,12 +91,16 @@ function ProjectCard({ project, onStart, onStop, onRestart, onDelete, onViewLogs
         >
           📄
         </button>
+
+        {/* Settings button */}
         <button 
           className="btn btn-secondary btn-icon" 
           title="Settings"
         >
           ⚙️
         </button>
+
+        {/* Delete button - only for stopped projects */}
         {isStopped && (
           <button 
             className="btn btn-danger btn-icon" 
