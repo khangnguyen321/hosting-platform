@@ -109,7 +109,7 @@ function LogViewer() {
           {!error && logs.length > 0 && (
             <div className="log-entries">
               {logs.map((log, index) => (
-                <div key={index} className={`log-entry ${getLevelColor(log.level)}`}>
+                <div key={index} className={`system-log-entry ${getLevelColor(log.level)}`}>
                   <span className="log-timestamp">{formatTimestamp(log.timestamp)}</span>
                   <span className="log-level">{log.level.toUpperCase()}</span>
                   <span className="log-message">{log.message}</span>

@@ -4,6 +4,8 @@ import api from '../api';
 import ProjectCard from '../components/ProjectCard';
 import './Dashboard.css';
 import LogViewer from '../components/LogViewer';
+import ProjectLogs from '../components/ProjectLogs';
+
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -11,6 +13,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [logsProjectId, setLogsProjectId] = useState(null);
 
   useEffect(() => {
   fetchProjects();
@@ -83,7 +86,7 @@ function Dashboard() {
   };
 
   const handleViewLogs = (projectId) => {
-    alert(`Logs feature coming soon for project ${projectId}`);
+    setLogsProjectId(projectId);
   };
 
   const runningCount = projects.filter(p => p.status === 'running' || p.is_running).length;
@@ -170,6 +173,11 @@ function Dashboard() {
         </div>
       )}
       <LogViewer/>
+      <ProjectLogs
+	projectId={logsProjectId}
+	isOpen={logsProjectId !== null}
+	onClose={() => setLogsProjectId(null)}
+      />
     </div>
   );
 }

@@ -451,29 +451,65 @@ app.get(
   }),
 );
 
+// Get project live logs (from memory)
 app.get(
-  "/api/projects/:id/logs",
+  "/api/projects/:id/logs/live",
   auth.requireAuth,
   asyncHandler(async (req, res, next) => {
-    const projectId = req.params.id;
-
-    const logs = await new Promise((resolve, reject) => {
-      db.all(
-        `SELECT dl.* FROM deployment_logs dl
-         JOIN deployments d ON dl.deployment_id = d.id
-         JOIN projects p ON d.project_id = p.id
-         WHERE p.id = ? AND p.user_id = ?
-         ORDER BY dl.created_at DESC LIMIT 100`,
+    const projectId = parseInt(req.params.id);
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+    
+    // Verify project belongs to user
+    const project = await new Promise((resolve, reject) => {
+      db.get(
+        "SELECT * FROM projects WHERE id = ? AND user_id = ?",
         [projectId, req.user.id],
-        (err, logs) => {
+        (err, row) => {
           if (err) reject(err);
-          else resolve(logs || []);
-        },
+          else resolve(row);
+        }
       );
     });
+    
+    if (!project) {
+      return next(createNotFoundError("Project not found"));
+    }
+    
+    // Get logs from memory
+    const logs = deploy.projectLogs[projectId] || [];
+    const recentLogs = logs.slice(-limit); // Get last N entries
+    
+    res.json({
+      logs: recentLogs,
+      total: logs.length,
+      showing: recentLogs.length,
+      isRunning: project.is_running === 1
+    });
+  })
+);
 
-    res.json(logs);
-  }),
+app.get(
+ "/api/projects/:id/logs",
+ auth.requireAuth,
+ asyncHandler(async (req, res, next) => {
+  const projectId = req.params.id;
+
+  const logs = await new Promise((resolve, reject) => {
+    db.all(
+      `SELECT dl.* FROM deployment_logs dl
+       JOIN deployments d ON dl.deployment_id = d.id
+       JOIN projects p ON d.project_id = p.id
+       WHERE p.id = ? AND p.user_id = ?
+       ORDER BY dl.created_at DESC LIMIT 100`,
+       [projectId, req.user.id],
+       (err, logs) => {
+         if (err) reject(err);
+         else resolve(logs || []);
+       },
+     );
+   });
+   res.json(logs);
+ }),
 );
 
 // SECRETS ROUTES

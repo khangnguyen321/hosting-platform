@@ -123,7 +123,7 @@
   padding: 8px;
 }
 
-.log-entry {
+.system-log-entry {
   display: grid;
   grid-template-columns: 140px 60px 1fr auto auto;
   gap: 16px;
@@ -134,11 +134,11 @@
   transition: background 0.15s;
 }
 
-.log-entry:hover {
+.system-log-entry:hover {
   background: #0f1419;
 }
 
-.log-entry:last-child {
+.system-log-entry:last-child {
   border-bottom: none;
 }
 

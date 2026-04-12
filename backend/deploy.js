@@ -26,6 +26,28 @@ if (!fs.existsSync(PROJECTS_DIR)) {
 // Track running processes so we can stop them later
 const runningProcesses = {};
 
+//In-memory circular log buffer (last 500 lines per project)
+const projectLogs = {};
+
+function addProjectLog(projectId, message, type = 'info') {
+  if (!projectLogs[projectId]) {
+    projectLogs[projectId] = [];
+  }
+  
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    message: message.trim(),
+    type: type
+  };
+  
+  projectLogs[projectId].push(logEntry);
+  
+  // Keep only last 500 entries (circular buffer)
+  if (projectLogs[projectId].length > 500) {
+    projectLogs[projectId].shift();
+  }
+}
+
 /**
  * FIND AVAILABLE PORT
  * Find a port that's not already in use
@@ -276,6 +298,10 @@ async function startProject(
       const message = data.toString();
       allLogs += message;
       console.log(`[${projectName}] ${message}`);
+
+      // Save to in-memory buffer
+      addProjectLog(projectId, message, "info");
+
       // Save to database
       saveLog(projectId, message, "info");
     });
@@ -284,6 +310,9 @@ async function startProject(
       const message = data.toString();
       allLogs += message;
       console.error(`[${projectName}] ERROR: ${message}`);
+
+      addProjectLog(projectId, message, "error");
+
       saveLog(projectId, message, "error");
     });
 
@@ -414,5 +443,6 @@ module.exports = {
   findAvailablePort,
   isPortListening,
   runningProcesses,
+  projectLogs,
   PROJECTS_DIR,
 };
