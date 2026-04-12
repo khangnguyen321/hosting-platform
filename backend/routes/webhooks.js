@@ -78,6 +78,12 @@ router.post("/github", async (req, res) => {
           });
         }
 
+        // DEBUG: Log what we actually got from the database
+        console.log("DEBUG: Project object:", JSON.stringify(project));
+        console.log("DEBUG: Project keys:", Object.keys(project));
+        console.log("DEBUG: Project.id:", project.id);
+        console.log("DEBUG: Project.name:", project.name);
+
         console.log(
           `Auto-deploying project: ${project.name} (ID: ${project.id})`,
         );
