@@ -1,0 +1,128 @@
+import { useState, useEffect } from 'react';
+import api from '../api';
+import './LogViewer.css';
+
+function LogViewer() {
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const fetchLogs = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(`/api/logs?limit=50&level=${filter}`);
+      setLogs(response.data.logs);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to fetch logs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isExpanded) {
+      fetchLogs();
+    }
+  }, [filter, isExpanded]);
+
+  useEffect(() => {
+    if (!autoRefresh || !isExpanded) return;
+    
+    const interval = setInterval(fetchLogs, 10000); // Refresh every 10s
+    return () => clearInterval(interval);
+  }, [autoRefresh, filter, isExpanded]);
+
+  const getLevelColor = (level) => {
+    switch (level) {
+      case 'error': return 'log-error';
+      case 'warn': return 'log-warn';
+      case 'info': return 'log-info';
+      default: return 'log-debug';
+    }
+  };
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  };
+
+  return (
+    <div className="log-viewer">
+      <div className="log-header" onClick={() => setIsExpanded(!isExpanded)}>
+        <div className="log-header-left">
+          <span className="log-icon">{isExpanded ? '▼' : '▶'}</span>
+          <h3>System Logs</h3>
+          {!isExpanded && logs.length > 0 && (
+            <span className="log-count">{logs.length} entries</span>
+          )}
+        </div>
+        {isExpanded && (
+          <div className="log-controls" onClick={(e) => e.stopPropagation()}>
+            <select 
+              value={filter} 
+              onChange={(e) => setFilter(e.target.value)}
+              className="log-filter"
+            >
+              <option value="all">All Levels</option>
+              <option value="info">Info</option>
+              <option value="warn">Warnings</option>
+              <option value="error">Errors</option>
+            </select>
+            
+            <label className="auto-refresh">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+              />
+              Auto-refresh
+            </label>
+            
+            <button onClick={fetchLogs} className="refresh-btn" disabled={loading}>
+              {loading ? '↻' : '⟳'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {isExpanded && (
+        <div className="log-content">
+          {error && (
+            <div className="log-error-message">{error}</div>
+          )}
+          
+          {!error && logs.length === 0 && !loading && (
+            <div className="log-empty">No logs available</div>
+          )}
+          
+          {!error && logs.length > 0 && (
+            <div className="log-entries">
+              {logs.map((log, index) => (
+                <div key={index} className={`log-entry ${getLevelColor(log.level)}`}>
+                  <span className="log-timestamp">{formatTimestamp(log.timestamp)}</span>
+                  <span className="log-level">{log.level.toUpperCase()}</span>
+                  <span className="log-message">{log.message}</span>
+                  {log.status && <span className="log-status">{log.status}</span>}
+                  {log.duration && <span className="log-duration">{log.duration}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default LogViewer;

@@ -1,0 +1,213 @@
+.log-viewer {
+  background: #111820;
+  border: 1px solid #1f2937;
+  border-radius: 8px;
+  margin-top: 24px;
+  overflow: hidden;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #0a0e14;
+  border-bottom: 1px solid #1f2937;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.log-header:hover {
+  background: #0f1419;
+}
+
+.log-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.log-icon {
+  color: #3b82f6;
+  font-size: 12px;
+  transition: transform 0.15s;
+}
+
+.log-header h3 {
+  margin: 0;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.log-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #6b7280;
+  background: #1f2937;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.log-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.log-filter {
+  background: #1f2937;
+  color: #e5e7eb;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.log-filter:hover {
+  border-color: #3b82f6;
+}
+
+.log-filter:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.auto-refresh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.auto-refresh input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+.refresh-btn {
+  background: #1f2937;
+  color: #3b82f6;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #374151;
+  border-color: #3b82f6;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.log-content {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.log-entries {
+  padding: 8px;
+}
+
+.log-entry {
+  display: grid;
+  grid-template-columns: 140px 60px 1fr auto auto;
+  gap: 16px;
+  padding: 8px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  border-bottom: 1px solid #1f2937;
+  transition: background 0.15s;
+}
+
+.log-entry:hover {
+  background: #0f1419;
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.log-timestamp {
+  color: #6b7280;
+}
+
+.log-level {
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.log-message {
+  color: #e5e7eb;
+}
+
+.log-status {
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.log-duration {
+  color: #6b7280;
+}
+
+.log-info .log-level {
+  color: #3b82f6;
+}
+
+.log-warn .log-level {
+  color: #f59e0b;
+}
+
+.log-error .log-level {
+  color: #ef4444;
+}
+
+.log-debug .log-level {
+  color: #6b7280;
+}
+
+.log-error-message {
+  padding: 16px 24px;
+  color: #ef4444;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 14px;
+}
+
+.log-empty {
+  padding: 32px 24px;
+  text-align: center;
+  color: #6b7280;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 14px;
+}
+
+.log-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.log-content::-webkit-scrollbar-track {
+  background: #0a0e14;
+}
+
+.log-content::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 4px;
+}
+
+.log-content::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}

@@ -70,6 +70,10 @@ app.use("/api/", apiLimiter);
 const webhookRoutes = require("./routes/webhooks");
 app.use("/api/webhooks", webhookRoutes);
 
+// LOGS ROUTES (requires authentication)
+const logsRoutes = require("./routes/logs");
+app.use("/api/logs", logsRoutes);
+
 // AUTHENTICATION ROUTES
 app.post(
   "/auth/signup",

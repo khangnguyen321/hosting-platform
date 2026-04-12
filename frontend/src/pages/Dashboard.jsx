@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import ProjectCard from '../components/ProjectCard';
 import './Dashboard.css';
+import LogViewer from '../components/LogViewer';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -168,6 +169,7 @@ function Dashboard() {
           ))}
         </div>
       )}
+      <LogViewer/>
     </div>
   );
 }
