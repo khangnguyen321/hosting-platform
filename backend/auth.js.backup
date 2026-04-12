@@ -40,20 +40,10 @@ async function signup(username, email, password) {
               reject(err);
             }
           } else {
-            // ✅ NEW: Generate JWT token for auto-login after signup
-            const token = jwt.sign(
-              { id: this.lastID, username, email },
-              JWT_SECRET,
-              { expiresIn: '7d' }
-            );
-            
             resolve({
-              token,
-              user: {
-                id: this.lastID,
-                username,
-                email
-              },
+              id: this.lastID,
+              username,
+              email,
               message: 'Account created successfully'
             });
           }

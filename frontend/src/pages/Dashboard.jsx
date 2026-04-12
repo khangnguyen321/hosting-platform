@@ -12,18 +12,19 @@ function Dashboard() {
   const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
-    fetchProjects();
-    // Get user email from token
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUserEmail(payload.email || 'user@example.com');
-      } catch (e) {
-        setUserEmail('user@example.com');
-      }
+  fetchProjects();
+  
+  // Get user email from token
+  const token = localStorage.getItem('token');
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      setUserEmail(payload.email || 'user@example.com');
+    } catch (e) {
+      setUserEmail('user@example.com');
     }
-  }, []);
+  }
+}, []);
 
   const fetchProjects = async () => {
     try {
@@ -45,15 +46,19 @@ function Dashboard() {
     navigate('/login');
   };
 
-  const handleStart = async (projectId) => {
-    try {
-      await api.post(`/api/projects/${projectId}/start`);
+  const handleDeploy = async (projectId) => {
+  try {
+    await api.post(`/api/projects/${projectId}/deploy`);
+    
+    // Wait 8 seconds then refresh once (gives deployment time to start)
+    setTimeout(() => {
       fetchProjects();
-    } catch (err) {
-      alert('Failed to start project');
-    }
-  };
-
+    }, 8000);
+  } catch (err) {
+    alert('Failed to deploy project: ' + (err.response?.data?.error || err.message));
+  }
+};
+  
   const handleStop = async (projectId) => {
     try {
       await api.post(`/api/projects/${projectId}/stop`);
@@ -63,15 +68,7 @@ function Dashboard() {
     }
   };
 
-  const handleRestart = async (projectId) => {
-    try {
-      await api.post(`/api/projects/${projectId}/restart`);
-      fetchProjects();
-    } catch (err) {
-      alert('Failed to restart project');
-    }
-  };
-
+  
   const handleDelete = async (projectId) => {
     if (!window.confirm('Are you sure you want to delete this project?')) {
       return;
@@ -163,11 +160,10 @@ function Dashboard() {
             <ProjectCard
               key={project.id}
               project={project}
-              onStart={handleStart}
+              onDeploy={handleDeploy}
               onStop={handleStop}
-              onRestart={handleRestart}
-              onDelete={handleDelete}
-              onViewLogs={handleViewLogs}
+	      onDelete={handleDelete}
+	      onViewLogs={handleViewLogs}
             />
           ))}
         </div>
