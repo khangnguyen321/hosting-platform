@@ -58,7 +58,7 @@ router.post("/github", async (req, res) => {
 
     // Find project matching this repository (using callback-based sqlite3)
     db.get(
-      `SELECT id, name, github_branch FROM projects 
+      `SELECT id, name, github_branch, github_url, user_id FROM projects 
        WHERE github_url = ? AND github_branch = ?`,
       [repoUrl, branch],
       (err, project) => {
@@ -99,29 +99,58 @@ router.post("/github", async (req, res) => {
           },
         );
 
-        // Trigger deployment asynchronously
-        const { exec } = require("child_process");
-        const deployScript = `/opt/launchport/scripts/deploy.sh ${project.id}`;
+        // Trigger deployment using deploy module (same as manual deployment)
+        const deploy = require("../deploy");
+        const encryption = require("../encryption");
+        const nginxAutomation = require("../nginx-automation");
 
-        exec(deployScript, (error, stdout, stderr) => {
-          if (error) {
-            console.error(`Deployment error for project ${project.id}:`, error);
-            db.run(
-              `UPDATE projects SET is_running = 0 WHERE id = ?`,
-              [project.id],
-              (errUpdate) => {
-                if (errUpdate) {
-                  console.error(
-                    "Failed to update project after deployment error:",
-                    errUpdate,
-                  );
-                }
-              },
+        // Run deployment asynchronously (don't block webhook response)
+        (async () => {
+          try {
+            console.log(`\n🚀 AUTO-DEPLOYING: ${project.name}`);
+            console.log(`📍 GitHub URL: ${project.github_url}`);
+
+            const projectPath = await deploy.cloneRepository(
+              project.github_url,
+              project.name,
             );
-          } else {
-            console.log(`Deployment output for project ${project.id}:`, stdout);
+
+            await deploy.installDependencies(projectPath);
+
+            const projectEnv = await encryption.getEnvironmentForProject(
+              project.id,
+            );
+
+            const { port, pid } = await deploy.startProject(
+              project.id,
+              projectPath,
+              project.name,
+              projectEnv,
+            );
+
+            // Setup Nginx and SSL
+            console.log(`🔧 Setting up Nginx and SSL for ${project.name}...`);
+            const automationResult = await nginxAutomation.setupNginxAndSSL(
+              project.name,
+              port,
+            );
+
+            if (automationResult.success) {
+              console.log(`✅ Auto-deployment complete: ${project.name}`);
+              console.log(`🌐 Live at: ${automationResult.url}`);
+            } else {
+              console.log(`⚠️  Deployed on port ${port} but automation failed`);
+            }
+          } catch (error) {
+            console.error(
+              `❌ Auto-deployment failed for ${project.name}:`,
+              error.message,
+            );
+            db.run(`UPDATE projects SET is_running = 0 WHERE id = ?`, [
+              project.id,
+            ]);
           }
-        });
+        })();
 
         // Return success immediately (don't wait for deployment)
         res.status(200).json({
