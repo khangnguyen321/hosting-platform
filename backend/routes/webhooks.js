@@ -81,7 +81,7 @@ router.post("/github", async (req, res) => {
     db.prepare(
       `
       UPDATE projects 
-      SET status = 'deploying', updated_at = CURRENT_TIMESTAMP 
+      SET is_running = 0 
       WHERE id = ?
     `,
     ).run(project.id);
@@ -96,7 +96,7 @@ router.post("/github", async (req, res) => {
         db.prepare(
           `
           UPDATE projects 
-          SET status = 'stopped' 
+          SET is_running = 0 
           WHERE id = ?
         `,
         ).run(project.id);
