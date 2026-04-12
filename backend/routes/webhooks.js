@@ -60,8 +60,8 @@ router.post("/github", async (req, res) => {
     const project = db
       .prepare(
         `
-      SELECT id, name, branch FROM projects 
-      WHERE repo_url = ? AND branch = ?
+      SELECT id, name, github_branch FROM projects 
+      WHERE github_url = ? AND github_branch = ?
     `,
       )
       .get(repoUrl, branch);
