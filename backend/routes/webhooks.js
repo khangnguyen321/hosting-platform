@@ -56,61 +56,75 @@ router.post("/github", async (req, res) => {
 
     console.log(`Webhook received: ${repoUrl} on branch ${branch}`);
 
-    // Find project matching this repository
-    const project = db
-      .prepare(
-        `
-      SELECT id, name, github_branch FROM projects 
-      WHERE github_url = ? AND github_branch = ?
-    `,
-      )
-      .get(repoUrl, branch);
+    // Find project matching this repository (using callback-based sqlite3)
+    db.get(
+      `SELECT id, name, github_branch FROM projects 
+       WHERE github_url = ? AND github_branch = ?`,
+      [repoUrl, branch],
+      (err, project) => {
+        if (err) {
+          console.error("Database error:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
 
-    if (!project) {
-      console.log(`No project found for repo ${repoUrl} on branch ${branch}`);
-      return res.status(200).json({
-        message: "No matching project found",
-        repo: repoUrl,
-        branch: branch,
-      });
-    }
+        if (!project) {
+          console.log(
+            `No project found for repo ${repoUrl} on branch ${branch}`,
+          );
+          return res.status(200).json({
+            message: "No matching project found",
+            repo: repoUrl,
+            branch: branch,
+          });
+        }
 
-    console.log(`Auto-deploying project: ${project.name} (ID: ${project.id})`);
+        console.log(
+          `Auto-deploying project: ${project.name} (ID: ${project.id})`,
+        );
 
-    // Update project status to 'deploying'
-    db.prepare(
-      `
-      UPDATE projects 
-      SET is_running = 0 
-      WHERE id = ?
-    `,
-    ).run(project.id);
+        // Update project to deploying state
+        db.run(
+          `UPDATE projects SET is_running = 0 WHERE id = ?`,
+          [project.id],
+          (updateErr) => {
+            if (updateErr) {
+              console.error("Failed to update project status:", updateErr);
+            }
+          },
+        );
 
-    // Trigger deployment asynchronously
-    const { exec } = require("child_process");
-    const deployScript = `/opt/launchport/scripts/deploy.sh ${project.id}`;
+        // Trigger deployment asynchronously
+        const { exec } = require("child_process");
+        const deployScript = `/opt/launchport/scripts/deploy.sh ${project.id}`;
 
-    exec(deployScript, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Deployment error for project ${project.id}:`, error);
-        db.prepare(
-          `
-          UPDATE projects 
-          SET is_running = 0 
-          WHERE id = ?
-        `,
-        ).run(project.id);
-      } else {
-        console.log(`Deployment output for project ${project.id}:`, stdout);
-      }
-    });
+        exec(deployScript, (error, stdout, stderr) => {
+          if (error) {
+            console.error(`Deployment error for project ${project.id}:`, error);
+            db.run(
+              `UPDATE projects SET is_running = 0 WHERE id = ?`,
+              [project.id],
+              (errUpdate) => {
+                if (errUpdate) {
+                  console.error(
+                    "Failed to update project after deployment error:",
+                    errUpdate,
+                  );
+                }
+              },
+            );
+          } else {
+            console.log(`Deployment output for project ${project.id}:`, stdout);
+          }
+        });
 
-    // Return success immediately (don't wait for deployment)
-    res.status(200).json({
-      message: "Deployment triggered",
-      project: project.name,
-      branch: branch,
-    });
+        // Return success immediately (don't wait for deployment)
+        res.status(200).json({
+          message: "Deployment triggered",
+          project: project.name,
+          branch: branch,
+        });
+      },
+    );
   } catch (error) {
     console.error("Webhook error:", error);
     res.status(500).json({ error: "Webhook processing failed" });
