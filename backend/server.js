@@ -12,6 +12,8 @@ process.env.DATABASE_PATH = process.env.DATABASE_PATH || "./platform.db";
 
 // Import our modules
 const db = require("./db");
+const webhookRoutes = require('./routes/webhooks');
+app.use('/api/webhooks', webhookRoutes);
 const auth = require("./auth");
 const deploy = require("./deploy");
 const encryption = require("./encryption");
